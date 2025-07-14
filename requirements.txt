@@ -1,0 +1,8 @@
+pandas
+openpyxl
+selenium
+selenium-wire
+requests
+blinker==1.4
+setuptools
+packaging
