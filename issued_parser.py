@@ -16,6 +16,9 @@ from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 import json
 
+import chromedriver_autoinstaller
+chromedriver_autoinstaller.install()
+
 
 def parse_date(val):
     if pd.isna(val):
@@ -39,30 +42,58 @@ def extract_excel_from_govkz():
     options.add_argument(f'--user-data-dir={tmp_profile}')
     options.add_argument('--disable-ipv6')
 
-    service = Service("chromedriver.exe")  # укажи путь к chromedriver если надо
+    # service = Service("/usr/local/bin/chromedriver")  # укажи путь к chromedriver если надо
     seleniumwire_options = {'verify_ssl': False}
-    driver = webdriver.Chrome(service=service, options=options, seleniumwire_options=seleniumwire_options)
+    driver = webdriver.Chrome(options=options, seleniumwire_options=seleniumwire_options)
 
     try:
         url = "https://www.gov.kz/memleket/entities/ardfm/permissions-notifications/section/1/subsection/5/registry/19?lang=ru"
         driver.get(url)
         time.sleep(10)
 
-        # 🔽 Раскрываем все блоки collapse, чтобы появились ant-table
-        expand_buttons = driver.find_elements(By.CSS_SELECTOR, ".collapse__header")
-        for btn in expand_buttons:
+        # 1) раскрываем все основные блоки
+        main_buttons = driver.find_elements(By.CSS_SELECTOR, ".collapse__header")
+        for btn in main_buttons:
             try:
                 driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
-                time.sleep(0.3)
                 btn.click()
-                # ждём появления вложенной таблицы (если есть)
-                WebDriverWait(driver, 3).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, ".ant-table-content"))
-                )
-            except (TimeoutException, ElementClickInterceptedException):
-                print("⚠️ Не удалось раскрыть блок (возможно уже раскрыт или отсутствует таблица)")
-            except Exception as e:
-                print(f"❌ Ошибка при раскрытии: {e}")
+                time.sleep(0.2)
+            except:
+                pass
+
+
+        content_divs = driver.find_elements(By.CSS_SELECTOR, ".collapse__content")
+
+        for content_div in content_divs:
+            # 2) раскрываем все вложенные секции Ant-Design
+            inner_arrows = content_div.find_elements(By.CSS_SELECTOR, ".anticon-right.ant-collapse-arrow")
+            if inner_arrows:
+                print(f"🔍 Найдено {len(inner_arrows)} внутренних секций")
+                for j, arrow in enumerate(inner_arrows):
+                    try:
+                        driver.execute_script("arguments[0].scrollIntoView(true);", arrow)
+                        time.sleep(1)
+
+                        driver.execute_script("arguments[0].click();", arrow)
+                        time.sleep(2)
+                    except:
+                        pass
+
+
+        # 👇 Принудительно раскрываем все внутренние ant-collapse через JS
+        driver.execute_script("""
+        document.querySelectorAll('.ant-collapse-item').forEach(item => {
+            item.classList.add('ant-collapse-item-active');
+        });
+        document.querySelectorAll('.ant-collapse-content').forEach(content => {
+            content.classList.remove('ant-collapse-content-inactive');
+            content.classList.add('ant-collapse-content-active');
+            content.style.display = 'block';
+            content.style.height = 'auto';
+        });
+        """)
+        time.sleep(1)
+
 
         # 💾 Сохраняем HTML после раскрытия
         html_source = driver.page_source
@@ -114,6 +145,21 @@ def extract_excel_from_govkz():
                         record["operations_count"] = value
                     elif "Банковские заемные операции" in key:
                         record["operations_description"] = key
+
+                # поля переоформления из внутренней ant-table
+                table = block.select_one(".ant-table-wrapper table")
+                if table:
+                    tds = table.select("tbody tr td.ant-table-cell")
+                    # 0-й ячейка — всегда "Переоформление лицензии"
+                    record["is_reissued"] = True
+                    record["reissue_basis"]           = tds[1].get_text(strip=True)
+                    record["reissue_reason"]          = tds[2].get_text(strip=True)
+                    record["reissue_currency_type"]   = tds[3].get_text(strip=True)
+                else:
+                    record["is_reissued"] = False
+                    record["reissue_basis"] = None
+                    record["reissue_reason"] = None
+                    record["reissue_currency_type"] = None
 
             parsed_data.append(record)
 
