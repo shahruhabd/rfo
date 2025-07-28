@@ -19,6 +19,8 @@ class Fin(models.Model):
     short_name_ru = models.CharField(max_length=500, null=True, blank=True, verbose_name="Краткое название (рус)")
     short_name_kz = models.CharField(max_length=500, null=True, blank=True, verbose_name="Краткое название (каз)")
     short_name_en = models.CharField(max_length=500, null=True, blank=True, verbose_name="Краткое название (англ)")
+    eprgo_name = models.CharField(max_length=500, null=True, blank=True, verbose_name="Название ЕПРГО")
+    eprgo_extra_name = models.CharField(max_length=500, null=True, blank=True, verbose_name="Доп название ЕПРГО")
 
     registration_date = models.DateField(null=True, blank=True, verbose_name="Дата регистрации")
     registration_last_date = models.DateField(null=True, blank=True, verbose_name="Дата последнего изменения")
@@ -35,6 +37,9 @@ class Fin(models.Model):
 
     address = models.TextField(null=True, blank=True, verbose_name="Адрес регистрации")
     zip_code = models.CharField(max_length=20, null=True, blank=True, verbose_name="Почтовый индекс")
+
+    phone_number = models.CharField(max_length=100, null=True, blank=True, verbose_name="Номер телефона")
+    web_site = models.CharField(max_length=100, null=True, blank=True, verbose_name="Веб-сайт")
 
     class Meta:
         verbose_name = "Финансовая организация"
@@ -128,6 +133,9 @@ class IssuedLicense(models.Model):
     # Для страховых организаций
     total_insurances = models.CharField(max_length=100, null=True, blank=True, verbose_name="Количество страховых классов")
 
+    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
+
     class Meta:
         verbose_name = "Выданная лицензия"
         verbose_name_plural = "Реестр выданных лицензий"
@@ -147,11 +155,11 @@ class LicenseReissue(models.Model):
     currency_type = models.CharField(max_length=100, blank=True, null=True, verbose_name="Валюта при переоформлении")
 
     class Meta:
-        verbose_name = "Переоформление лицензии"
-        verbose_name_plural = "Переоформления лицензии"
+        verbose_name = "Переоформленная лицензия"
+        verbose_name_plural = "Переоформленные лицензии"
 
     def __str__(self):
-        return f"{self.date} — {self.reason}"
+        return f"{self.reason}"
 
 
 class SuspendedLicense(models.Model):
@@ -170,6 +178,9 @@ class SuspendedLicense(models.Model):
     decision_date = models.DateField(verbose_name="Дата решения уполномоченного органа")
     suspension_reason = models.TextField(verbose_name="Основание приостановления / лишения")
 
+    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
+
     class Meta:
         verbose_name = "Приостановленная/лишённая лицензия"
         verbose_name_plural = "Реестр приостановленных/лишённых лицензий"
@@ -185,13 +196,17 @@ class RevokedLicense(models.Model):
         verbose_name="Финансовая организация"
     )
 
-    decision_number = models.CharField(max_length=100, verbose_name="Номер решения уполномоченного органа")
+    decision_number = models.CharField(max_length=500, verbose_name="Номер решения уполномоченного органа")
     decision_date = models.DateField(verbose_name="Дата решения уполномоченного органа")
 
     license_number = models.CharField(max_length=50, verbose_name="Номер лицензии")
     license_issue_date = models.DateField(verbose_name="Дата выдачи лицензии")
 
     activity_type = models.TextField(verbose_name="Вид деятельности")
+    currency = models.CharField(max_length=255, null=True, blank=True, verbose_name="Валюта операций")
+
+    created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True, blank=True)
 
     class Meta:
         verbose_name = "Прекратившая действие лицензия"
